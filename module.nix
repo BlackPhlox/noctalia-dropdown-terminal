@@ -52,6 +52,10 @@ in
         - `cornerRadius` (8) — the two free, lower corners
         - `animationMs` (180) — roll-down duration
         - `shellProgram` ("") — empty uses the shell from passwd
+        - `previousTabKeys` ("Shift+Left, Ctrl+Shift+Tab"), `nextTabKeys`
+          ("Shift+Right, Ctrl+Tab"), `moveTabLeftKeys` ("Ctrl+Shift+Left")
+          and `moveTabRightKeys` ("Ctrl+Shift+Right") — comma-separated key
+          combinations; empty unbinds the action
 
         Values are read with QSettings in INI format, so they live under the
         `[General]` section this module generates.

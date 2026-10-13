@@ -8,7 +8,10 @@
 #ifndef TEXTRENDER_H
 #define TEXTRENDER_H
 
+#include <array>
+
 #include <QColor>
+#include <QKeyCombination>
 #include <QQuickPaintedItem>
 #include <QtQml/qqmlregistration.h>
 
@@ -31,7 +34,16 @@ class TextRender : public QQuickPaintedItem
         WRITE setTerminalEmulator NOTIFY terminalEmulatorChanged)
     Q_PROPERTY(QList<int> filterKeys READ filterKeys WRITE setFilterKeys
         NOTIFY filterKeysChanged)
+    Q_PROPERTY(QString previousTabKeys READ previousTabKeys WRITE setPreviousTabKeys
+        NOTIFY tabKeysChanged)
+    Q_PROPERTY(QString nextTabKeys READ nextTabKeys WRITE setNextTabKeys
+        NOTIFY tabKeysChanged)
+    Q_PROPERTY(QString moveTabLeftKeys READ moveTabLeftKeys WRITE setMoveTabLeftKeys
+        NOTIFY tabKeysChanged)
+    Q_PROPERTY(QString moveTabRightKeys READ moveTabRightKeys WRITE setMoveTabRightKeys
+        NOTIFY tabKeysChanged)
     Q_PROPERTY(int sessionCount READ sessionCount NOTIFY sessionCountChanged)
+    Q_PROPERTY(QStringList sessionTitles READ sessionTitles NOTIFY sessionTitlesChanged)
     Q_PROPERTY(int activeSession READ activeSession WRITE setActiveSession
         NOTIFY activeSessionChanged)
     Q_PROPERTY(QColor defaultForeground READ defaultForeground
@@ -93,13 +105,26 @@ public:
         }
     }
 
+    // Tab shortcuts, each a comma-separated list of key sequences
+    // ("Shift+Left, Ctrl+Shift+Tab"). Empty leaves the action unbound.
+    QString previousTabKeys() const { return m_tabKeyText[PreviousTab]; }
+    void setPreviousTabKeys(const QString& keys) { setTabKeys(PreviousTab, keys); }
+    QString nextTabKeys() const { return m_tabKeyText[NextTab]; }
+    void setNextTabKeys(const QString& keys) { setTabKeys(NextTab, keys); }
+    QString moveTabLeftKeys() const { return m_tabKeyText[MoveTabLeft]; }
+    void setMoveTabLeftKeys(const QString& keys) { setTabKeys(MoveTabLeft, keys); }
+    QString moveTabRightKeys() const { return m_tabKeyText[MoveTabRight]; }
+    void setMoveTabRightKeys(const QString& keys) { setTabKeys(MoveTabRight, keys); }
+
     // Session management
     int sessionCount() const;
     int activeSession() const;
     void setActiveSession(int index);
     Q_INVOKABLE int newSession();
     Q_INVOKABLE void closeSession(int index);
-    Q_INVOKABLE QString sessionTitle(int index);
+    Q_INVOKABLE void moveSession(int from, int to);
+    Q_INVOKABLE QString sessionTitle(int index) const;
+    QStringList sessionTitles() const;
     Q_INVOKABLE void scrollBackward(int lines);
     Q_INVOKABLE void scrollForward(int lines);
     Q_INVOKABLE void setScrollPosition(int pos);
@@ -115,6 +140,7 @@ signals:
     void shellProgramChanged();
     void terminalEmulatorChanged();
     void filterKeysChanged();
+    void tabKeysChanged();
     void hangupReceived();
     void sessionCountChanged();
     void activeSessionChanged();
@@ -147,6 +173,10 @@ private:
     void connectTerminal(VTermBridge* t);
     void disconnectTerminal(VTermBridge* t);
 
+    enum TabAction { PreviousTab, NextTab, MoveTabLeft, MoveTabRight, TabActionCount };
+    void setTabKeys(TabAction action, const QString& keys);
+    bool handleTabShortcut(const QKeyEvent* event);
+
     // Coordinate helpers
     QPointF cellToPixel(int col, int row) const;
     QPoint pixelToCell(QPointF pos) const;
@@ -171,6 +201,8 @@ private:
     QString m_shellProgram;
     QString m_terminalEmulator;
     QList<int> m_filterKeys;
+    std::array<QString, TabActionCount> m_tabKeyText;
+    std::array<QList<QKeyCombination>, TabActionCount> m_tabKeys;
     QColor m_defaultForeground = QColor(235, 235, 235);
     QColor m_defaultBackground = QColor(0, 0, 0);
 

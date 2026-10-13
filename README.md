@@ -208,8 +208,32 @@ settings window stops that key following the scheme, and reverting it resumes.
 | Shift+Insert | Paste |
 | Ctrl+Shift+T / N | New tab |
 | Ctrl+Shift+W | Close tab |
-| Ctrl+Tab | Next tab |
-| Ctrl+Shift+Tab | Previous tab |
+| Shift+Left, Ctrl+Shift+Tab | Previous tab ¹ |
+| Shift+Right, Ctrl+Tab | Next tab ¹ |
+| Ctrl+Shift+Left | Move tab left ¹ |
+| Ctrl+Shift+Right | Move tab right ¹ |
+
+¹ Remappable, in the settings window under *Tab shortcuts* or with these keys:
+
+| Key | Default |
+|---|---|
+| `previousTabKeys` | `Shift+Left, Ctrl+Shift+Tab` |
+| `nextTabKeys` | `Shift+Right, Ctrl+Tab` |
+| `moveTabLeftKeys` | `Ctrl+Shift+Left` |
+| `moveTabRightKeys` | `Ctrl+Shift+Right` |
+
+Each is a comma-separated list of key combinations, spelled the way Qt's
+`QKeySequence` reads them (`Ctrl+PgUp`, `Alt+Right`, `Meta+1`). An empty value
+unbinds the action, which hands that key back to the program in the terminal —
+worth doing for Shift+Left/Right if you rely on them in an editor. Switching
+wraps around; moving stops at either end.
+
+```ini
+[General]
+previousTabKeys=Ctrl+PgUp
+nextTabKeys=Ctrl+PgDown
+moveTabLeftKeys=
+```
 
 ## Why it left noctalia
 

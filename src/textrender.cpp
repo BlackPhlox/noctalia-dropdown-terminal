@@ -12,6 +12,7 @@
 #include <QCursor>
 #include <QFontMetricsF>
 #include <QGuiApplication>
+#include <QKeySequence>
 #include <QPainter>
 #include <QTimerEvent>
 #include <cmath>
@@ -176,7 +177,23 @@ void TextRender::closeSession(int index)
     redraw();
 }
 
-QString TextRender::sessionTitle(int index)
+void TextRender::moveSession(int from, int to)
+{
+    if (from < 0 || from >= s_sessions.size() || to < 0 || to >= s_sessions.size()
+        || from == to)
+        return;
+
+    // The active terminal stays the same object, so nothing to reconnect —
+    // only the index that points at it has to follow the move.
+    VTermBridge* active = s_sessions[s_activeSession];
+    s_sessions.move(from, to);
+    s_activeSession = s_sessions.indexOf(active);
+
+    emit activeSessionChanged();
+    emit sessionTitlesChanged();
+}
+
+QString TextRender::sessionTitle(int index) const
 {
     if (index < 0 || index >= s_sessions.size())
         return QString();
@@ -184,6 +201,15 @@ QString TextRender::sessionTitle(int index)
     if (title.isEmpty())
         return QString("%1: Shell").arg(index + 1);
     return QString("%1: %2").arg(index + 1).arg(title);
+}
+
+QStringList TextRender::sessionTitles() const
+{
+    QStringList titles;
+    titles.reserve(s_sessions.size());
+    for (int i = 0; i < s_sessions.size(); ++i)
+        titles.append(sessionTitle(i));
+    return titles;
 }
 
 // ── Scroll API ──────────────────────────────────────────────────────
@@ -753,6 +779,63 @@ void TextRender::selectionHelper(QPointF scenePos, bool selectionOngoing)
 
 // ── Keyboard ────────────────────────────────────────────────────────
 
+void TextRender::setTabKeys(TabAction action, const QString& keys)
+{
+    if (m_tabKeyText[action] == keys)
+        return;
+    m_tabKeyText[action] = keys;
+
+    // Only the first chord of each sequence counts: there is no multi-key
+    // state machine here, and a binding like "Ctrl+A, X" makes no sense for
+    // stepping between tabs. Unparseable entries are dropped rather than
+    // allowed to swallow some unrelated key.
+    QList<QKeyCombination> parsed;
+    for (const QString& part : keys.split(QLatin1Char(','), Qt::SkipEmptyParts)) {
+        const QKeySequence seq = QKeySequence::fromString(part.trimmed(),
+                                                          QKeySequence::PortableText);
+        if (!seq.isEmpty() && seq[0].key() != Qt::Key_unknown)
+            parsed.append(seq[0]);
+    }
+    m_tabKeys[action] = parsed;
+    emit tabKeysChanged();
+}
+
+bool TextRender::handleTabShortcut(const QKeyEvent* event)
+{
+    // Shift+Tab arrives as Backtab; fold it back so "Ctrl+Shift+Tab" in the
+    // configuration means what it says. Keypad and group-switch flags are
+    // dropped so arrows match whichever way the keyboard reports them.
+    Qt::KeyboardModifiers mods = event->modifiers()
+        & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+    int key = event->key();
+    if (key == Qt::Key_Backtab) {
+        key = Qt::Key_Tab;
+        mods |= Qt::ShiftModifier;
+    }
+    const QKeyCombination pressed(mods, Qt::Key(key));
+
+    const int count = s_sessions.size();
+    if (m_tabKeys[PreviousTab].contains(pressed)) {
+        setActiveSession((s_activeSession - 1 + count) % count);
+        return true;
+    }
+    if (m_tabKeys[NextTab].contains(pressed)) {
+        setActiveSession((s_activeSession + 1) % count);
+        return true;
+    }
+    // Moving stops at either end instead of wrapping: a tab that jumps from
+    // first to last is easy to lose track of.
+    if (m_tabKeys[MoveTabLeft].contains(pressed)) {
+        moveSession(s_activeSession, s_activeSession - 1);
+        return true;
+    }
+    if (m_tabKeys[MoveTabRight].contains(pressed)) {
+        moveSession(s_activeSession, s_activeSession + 1);
+        return true;
+    }
+    return false;
+}
+
 void TextRender::keyPressEvent(QKeyEvent* event)
 {
     // Filter keys that should be ignored (e.g. the toggle hotkey)
@@ -760,6 +843,11 @@ void TextRender::keyPressEvent(QKeyEvent* event)
         event->ignore();
         return;
     }
+
+    // Configurable tab shortcuts come first, so a binding the user chose
+    // wins over the fixed ones below.
+    if (handleTabShortcut(event))
+        return;
 
     auto mods = event->modifiers();
     int key = event->key();
@@ -779,18 +867,6 @@ void TextRender::keyPressEvent(QKeyEvent* event)
     // Shift+Insert — paste
     if ((mods & Qt::ShiftModifier) && key == Qt::Key_Insert) {
         paste();
-        return;
-    }
-
-    // Ctrl+Tab / Ctrl+Shift+Tab — switch tabs
-    if ((mods & Qt::ControlModifier) && key == Qt::Key_Tab) {
-        int next = (s_activeSession + 1) % s_sessions.size();
-        setActiveSession(next);
-        return;
-    }
-    if ((mods & Qt::ControlModifier) && key == Qt::Key_Backtab) {
-        int prev = (s_activeSession - 1 + s_sessions.size()) % s_sessions.size();
-        setActiveSession(prev);
         return;
     }
 

@@ -59,6 +59,15 @@ class Settings : public QObject
                    backgroundOpacityChanged)
     Q_PROPERTY(int cornerRadius READ cornerRadius WRITE setCornerRadius NOTIFY cornerRadiusChanged)
     Q_PROPERTY(int animationMs READ animationMs WRITE setAnimationMs NOTIFY animationMsChanged)
+    // Tab shortcuts: comma-separated key sequences in QKeySequence's portable
+    // form, e.g. "Shift+Left, Ctrl+Shift+Tab". Empty disables the action.
+    Q_PROPERTY(QString previousTabKeys READ previousTabKeys WRITE setPreviousTabKeys NOTIFY
+                   previousTabKeysChanged)
+    Q_PROPERTY(QString nextTabKeys READ nextTabKeys WRITE setNextTabKeys NOTIFY nextTabKeysChanged)
+    Q_PROPERTY(QString moveTabLeftKeys READ moveTabLeftKeys WRITE setMoveTabLeftKeys NOTIFY
+                   moveTabLeftKeysChanged)
+    Q_PROPERTY(QString moveTabRightKeys READ moveTabRightKeys WRITE setMoveTabRightKeys NOTIFY
+                   moveTabRightKeysChanged)
     // Which layer each colour currently comes from, for the UI to show. Tied to
     // the colour's own signal: clearing an override always re-emits, so these
     // stay correct even when clearing does not change the resulting value.
@@ -86,6 +95,10 @@ public:
     [[nodiscard]] double backgroundOpacity() const { return m_backgroundOpacity; }
     [[nodiscard]] int cornerRadius() const { return m_cornerRadius; }
     [[nodiscard]] int animationMs() const { return m_animationMs; }
+    [[nodiscard]] QString previousTabKeys() const { return m_previousTabKeys; }
+    [[nodiscard]] QString nextTabKeys() const { return m_nextTabKeys; }
+    [[nodiscard]] QString moveTabLeftKeys() const { return m_moveTabLeftKeys; }
+    [[nodiscard]] QString moveTabRightKeys() const { return m_moveTabRightKeys; }
     [[nodiscard]] QString foregroundSource() const { return sourceOf(QStringLiteral("foreground")); }
     [[nodiscard]] QString backgroundSource() const { return sourceOf(QStringLiteral("background")); }
 
@@ -99,6 +112,10 @@ public:
     void setBackgroundOpacity(double v);
     void setCornerRadius(int v);
     void setAnimationMs(int v);
+    void setPreviousTabKeys(const QString &v);
+    void setNextTabKeys(const QString &v);
+    void setMoveTabLeftKeys(const QString &v);
+    void setMoveTabRightKeys(const QString &v);
 
     // Re-read from disk and emit whatever changed. The terminal calls this when
     // the settings process reports a write.
@@ -132,6 +149,10 @@ Q_SIGNALS:
     void backgroundOpacityChanged();
     void cornerRadiusChanged();
     void animationMsChanged();
+    void previousTabKeysChanged();
+    void nextTabKeysChanged();
+    void moveTabLeftKeysChanged();
+    void moveTabRightKeysChanged();
 
 private:
     // user override -> theme -> provisioned baseline -> built-in.
@@ -142,6 +163,7 @@ private:
     [[nodiscard]] double resolveDouble(const char *key, double builtin) const;
     [[nodiscard]] int resolveInt(const char *key, int builtin) const;
     [[nodiscard]] QString resolveColour(const char *key, const QString &builtin) const;
+    [[nodiscard]] QString resolveKeys(const char *key, const QString &builtin) const;
     void load();
     void emitAll();
     void markDirty(const char *key);
@@ -157,6 +179,10 @@ private:
     double m_backgroundOpacity = 0.92;
     int m_cornerRadius = 8;
     int m_animationMs = 180;
+    QString m_previousTabKeys;
+    QString m_nextTabKeys;
+    QString m_moveTabLeftKeys;
+    QString m_moveTabRightKeys;
 
     QSettings m_store;      // user overrides, writable
     QSettings m_theme;      // theme engine output, read-only
