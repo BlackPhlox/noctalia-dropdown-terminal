@@ -280,6 +280,60 @@ Rectangle {
                 }
 
                 Label {
+                    text: qsTr("Tab shortcuts")
+                    font.bold: true
+                    Layout.topMargin: 6
+                }
+
+                GridLayout {
+                    columns: 2
+                    columnSpacing: 8
+                    rowSpacing: 10
+                    Layout.fillWidth: true
+
+                    Label { text: qsTr("Previous tab") }
+                    TextField {
+                        Layout.fillWidth: true
+                        text: root.settings.previousTabKeys
+                        placeholderText: qsTr("Unbound")
+                        onEditingFinished: root.settings.previousTabKeys = text
+                    }
+
+                    Label { text: qsTr("Next tab") }
+                    TextField {
+                        Layout.fillWidth: true
+                        text: root.settings.nextTabKeys
+                        placeholderText: qsTr("Unbound")
+                        onEditingFinished: root.settings.nextTabKeys = text
+                    }
+
+                    Label { text: qsTr("Move tab left") }
+                    TextField {
+                        Layout.fillWidth: true
+                        text: root.settings.moveTabLeftKeys
+                        placeholderText: qsTr("Unbound")
+                        onEditingFinished: root.settings.moveTabLeftKeys = text
+                    }
+
+                    Label { text: qsTr("Move tab right") }
+                    TextField {
+                        Layout.fillWidth: true
+                        text: root.settings.moveTabRightKeys
+                        placeholderText: qsTr("Unbound")
+                        onEditingFinished: root.settings.moveTabRightKeys = text
+                    }
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: palette.placeholderText
+                    font.pixelSize: 11
+                    text: qsTr("Key names as Qt spells them, e.g. Shift+Left or Ctrl+Shift+Tab. "
+                             + "Separate several with commas; leave empty to unbind.")
+                }
+
+                Label {
                     Layout.fillWidth: true
                     Layout.topMargin: 4
                     wrapMode: Text.WordWrap

@@ -44,6 +44,11 @@ constexpr int kDefAnimationMs = 180;
 const QString kDefFontFamily = QStringLiteral("Hack");
 const QString kDefForeground = QStringLiteral("#ebebeb");
 const QString kDefBackground = QStringLiteral("#000000");
+// Yakuake's tab bindings, with Ctrl+Tab kept alongside for anyone used to it.
+const QString kDefPreviousTabKeys = QStringLiteral("Shift+Left, Ctrl+Shift+Tab");
+const QString kDefNextTabKeys = QStringLiteral("Shift+Right, Ctrl+Tab");
+const QString kDefMoveTabLeftKeys = QStringLiteral("Ctrl+Shift+Left");
+const QString kDefMoveTabRightKeys = QStringLiteral("Ctrl+Shift+Right");
 
 QString normalisedColour(const QString &value, const QString &fallback)
 {
@@ -339,6 +344,14 @@ QString Settings::resolveColour(const QString &key, const QString &builtin) cons
     return builtin;
 }
 
+QString Settings::resolveKeys(const char *key, const QString &builtin) const
+{
+    // An unquoted "a, b" in an INI file reads back as a string list, and that
+    // is exactly how a hand-written or Nix-generated file spells two bindings.
+    // Join it again so every layer yields the same comma-separated form.
+    return resolve(key, builtin).toStringList().join(QStringLiteral(", "));
+}
+
 void Settings::load()
 {
     // The scheme first, since where it sits in the lookup depends on which
@@ -379,6 +392,11 @@ void Settings::load()
     m_backgroundOpacity = qBound(0.0, resolveDouble("backgroundOpacity", kDefOpacity), 1.0);
     m_cornerRadius = qBound(0, resolveInt("cornerRadius", kDefRadius), kMaxCornerRadius);
     m_animationMs = qBound(0, resolveInt("animationMs", kDefAnimationMs), kMaxAnimationMs);
+    // Empty means unbound, so like the shell these are taken as written.
+    m_previousTabKeys = resolveKeys("previousTabKeys", kDefPreviousTabKeys);
+    m_nextTabKeys = resolveKeys("nextTabKeys", kDefNextTabKeys);
+    m_moveTabLeftKeys = resolveKeys("moveTabLeftKeys", kDefMoveTabLeftKeys);
+    m_moveTabRightKeys = resolveKeys("moveTabRightKeys", kDefMoveTabRightKeys);
 }
 
 void Settings::markDirty(const char *key)
@@ -419,6 +437,14 @@ void Settings::flush()
             m_store.setValue(key, m_animationMs);
         } else if (key == QLatin1String("colorScheme")) {
             m_store.setValue(key, m_colorScheme);
+        } else if (key == QLatin1String("previousTabKeys")) {
+            m_store.setValue(key, m_previousTabKeys);
+        } else if (key == QLatin1String("nextTabKeys")) {
+            m_store.setValue(key, m_nextTabKeys);
+        } else if (key == QLatin1String("moveTabLeftKeys")) {
+            m_store.setValue(key, m_moveTabLeftKeys);
+        } else if (key == QLatin1String("moveTabRightKeys")) {
+            m_store.setValue(key, m_moveTabRightKeys);
         }
     }
     m_dirty.clear();
@@ -442,6 +468,10 @@ void Settings::reload()
     const int oldAnim = m_animationMs;
     const QString oldScheme = m_colorScheme;
     const QStringList oldAnsi = m_ansiColors;
+    const QString oldPreviousTab = m_previousTabKeys;
+    const QString oldNextTab = m_nextTabKeys;
+    const QString oldMoveTabLeft = m_moveTabLeftKeys;
+    const QString oldMoveTabRight = m_moveTabRightKeys;
 
     // Every layer load() consults, not just the two that usually move: a
     // rebuild can replace the baseline under a running terminal, and `reload`
@@ -487,6 +517,18 @@ void Settings::reload()
     if (oldAnsi != m_ansiColors) {
         Q_EMIT ansiColorsChanged();
     }
+    if (oldPreviousTab != m_previousTabKeys) {
+        Q_EMIT previousTabKeysChanged();
+    }
+    if (oldNextTab != m_nextTabKeys) {
+        Q_EMIT nextTabKeysChanged();
+    }
+    if (oldMoveTabLeft != m_moveTabLeftKeys) {
+        Q_EMIT moveTabLeftKeysChanged();
+    }
+    if (oldMoveTabRight != m_moveTabRightKeys) {
+        Q_EMIT moveTabRightKeysChanged();
+    }
 }
 
 QString Settings::sourceOf(const QString &key) const
@@ -528,6 +570,10 @@ void Settings::emitAll()
     Q_EMIT animationMsChanged();
     Q_EMIT colorSchemeChanged();
     Q_EMIT ansiColorsChanged();
+    Q_EMIT previousTabKeysChanged();
+    Q_EMIT nextTabKeysChanged();
+    Q_EMIT moveTabLeftKeysChanged();
+    Q_EMIT moveTabRightKeysChanged();
 }
 
 void Settings::clearOverride(const QString &key)
@@ -685,4 +731,48 @@ void Settings::setColorScheme(const QString &v)
     reload();
     // As in clearOverride(): sources can change without the values changing.
     emitAll();
+}
+
+void Settings::setPreviousTabKeys(const QString &v)
+{
+    const QString trimmed = v.trimmed();
+    if (m_previousTabKeys == trimmed) {
+        return;
+    }
+    m_previousTabKeys = trimmed;
+    markDirty("previousTabKeys");
+    Q_EMIT previousTabKeysChanged();
+}
+
+void Settings::setNextTabKeys(const QString &v)
+{
+    const QString trimmed = v.trimmed();
+    if (m_nextTabKeys == trimmed) {
+        return;
+    }
+    m_nextTabKeys = trimmed;
+    markDirty("nextTabKeys");
+    Q_EMIT nextTabKeysChanged();
+}
+
+void Settings::setMoveTabLeftKeys(const QString &v)
+{
+    const QString trimmed = v.trimmed();
+    if (m_moveTabLeftKeys == trimmed) {
+        return;
+    }
+    m_moveTabLeftKeys = trimmed;
+    markDirty("moveTabLeftKeys");
+    Q_EMIT moveTabLeftKeysChanged();
+}
+
+void Settings::setMoveTabRightKeys(const QString &v)
+{
+    const QString trimmed = v.trimmed();
+    if (m_moveTabRightKeys == trimmed) {
+        return;
+    }
+    m_moveTabRightKeys = trimmed;
+    markDirty("moveTabRightKeys");
+    Q_EMIT moveTabRightKeysChanged();
 }

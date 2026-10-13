@@ -90,6 +90,11 @@ Item {
             // put the dropdown away, as closing it would in a normal terminal.
             onLastSessionExited: root.controller.requestHide()
 
+            previousTabKeys: root.settings.previousTabKeys
+            nextTabKeys: root.settings.nextTabKeys
+            moveTabLeftKeys: root.settings.moveTabLeftKeys
+            moveTabRightKeys: root.settings.moveTabRightKeys
+
             Component.onCompleted: textrender.forceActiveFocus()
         }
 
@@ -269,7 +274,10 @@ Item {
 
                                 Text {
                                     id: tabLabel
-                                    text: textrender.sessionTitle(index)
+                                    // The property rather than sessionTitle():
+                                    // a method call carries no change signal,
+                                    // so a moved tab would keep its old label.
+                                    text: textrender.sessionTitles[index] ?? ""
                                     color: index === textrender.activeSession ? "#ffffff" : "#aaaaaa"
                                     font.pixelSize: 11
                                     font.family: root.settings.fontFamily
