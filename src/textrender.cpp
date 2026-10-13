@@ -183,6 +183,7 @@ VTermBridge* TextRender::createSession()
                    qMax(1, (int)((height() - 4) / m_fontHeight)));
         session->setTermSize(size);
         session->setDefaultColors(m_defaultForeground.rgb(), m_defaultBackground.rgb());
+        session->setPalette(palette());
         session->init("UTF-8",
             m_terminalEmulator.isEmpty() ? "xterm-256color"
                                          : m_terminalEmulator.toUtf8(),
@@ -721,6 +722,25 @@ void TextRender::setDefaultBackground(const QColor& c)
     for (VTermBridge* session : std::as_const(s_sessions))
         session->setDefaultColors(m_defaultForeground.rgb(), m_defaultBackground.rgb());
     emit defaultColorsChanged();
+    scheduleRepaint();
+}
+
+std::array<QColor, 16> TextRender::palette() const
+{
+    std::array<QColor, 16> out;
+    for (int i = 0; i < 16 && i < m_ansiColors.size(); ++i)
+        out[i] = QColor(m_ansiColors[i]);
+    return out;
+}
+
+void TextRender::setAnsiColors(const QStringList& colours)
+{
+    if (m_ansiColors == colours)
+        return;
+    m_ansiColors = colours;
+    for (VTermBridge* session : std::as_const(s_sessions))
+        session->setPalette(palette());
+    emit ansiColorsChanged();
     scheduleRepaint();
 }
 

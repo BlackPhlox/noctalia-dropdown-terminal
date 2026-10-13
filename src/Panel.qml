@@ -84,6 +84,7 @@ Item {
 
             defaultForeground: root.settings.foreground
             defaultBackground: root.settings.background
+            ansiColors: root.settings.ansiColors
 
             // `exit` in the only tab: it already holds a fresh shell, so just
             // put the dropdown away, as closing it would in a normal terminal.
