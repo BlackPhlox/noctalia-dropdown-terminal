@@ -174,6 +174,10 @@ Item {
             anchors.bottomMargin: 6
             height: 28
 
+            // Tab whose name is being edited in place, or -1. Opened by
+            // right-clicking a tab or by the rename shortcut.
+            property int renamingIndex: -1
+
             // Settings launcher, right end of the tab bar.
             Rectangle {
                 id: gearButton
@@ -247,12 +251,19 @@ Item {
                         model: textrender.sessionCount
 
                         Rectangle {
+                            id: tab
                             required property int index
+                            readonly property bool renaming: tabBar.renamingIndex === index
+                            // The editor grows with the name, with room to
+                            // type into when it starts out short or empty.
+                            readonly property real editorWidth:
+                                Math.max(tabEditor.contentWidth + 2, 80)
                             height: 22
-                            width: tabLabel.implicitWidth + closeBtn.width + 20
+                            width: (renaming ? editorWidth : tabLabel.implicitWidth)
+                                   + closeBtn.width + 20
                             anchors.verticalCenter: parent.verticalCenter
                             radius: 4
-                            color: index === textrender.activeSession
+                            color: index === textrender.activeSession || renaming
                                    ? Qt.rgba(1, 1, 1, 0.15)
                                    : Qt.rgba(1, 1, 1, 0.05)
 
@@ -264,11 +275,54 @@ Item {
 
                                 Text {
                                     id: tabLabel
-                                    text: textrender.sessionTitle(index)
+                                    visible: !tab.renaming
+                                    // The property rather than sessionTitle():
+                                    // a method call carries no change signal,
+                                    // so a renamed tab would keep its old label.
+                                    text: textrender.sessionTitles[index] ?? ""
                                     color: index === textrender.activeSession ? "#ffffff" : "#aaaaaa"
                                     font.pixelSize: 11
                                     font.family: root.settings.fontFamily
                                     Layout.fillWidth: true
+                                }
+
+                                TextInput {
+                                    id: tabEditor
+                                    visible: tab.renaming
+                                    color: "#ffffff"
+                                    selectionColor: Qt.rgba(1, 1, 1, 0.3)
+                                    selectedTextColor: "#ffffff"
+                                    font: tabLabel.font
+                                    clip: true
+                                    selectByMouse: true
+                                    maximumLength: 64
+                                    Layout.preferredWidth: tab.editorWidth
+                                    Layout.fillWidth: true
+
+                                    onVisibleChanged: {
+                                        if (!visible)
+                                            return;
+                                        text = textrender.sessionName(tab.index);
+                                        selectAll();
+                                        forceActiveFocus();
+                                    }
+
+                                    // Enter, or focus moving elsewhere, keeps
+                                    // the name. Checked against `renaming` so
+                                    // an Escape, which also drops focus, does
+                                    // not save it after all.
+                                    onEditingFinished: {
+                                        if (!tab.renaming)
+                                            return;
+                                        tabBar.renamingIndex = -1;
+                                        textrender.renameSession(tab.index, text);
+                                        textrender.forceActiveFocus();
+                                    }
+
+                                    Keys.onEscapePressed: {
+                                        tabBar.renamingIndex = -1;
+                                        textrender.forceActiveFocus();
+                                    }
                                 }
 
                                 Text {
@@ -289,7 +343,15 @@ Item {
                             MouseArea {
                                 anchors.fill: parent
                                 anchors.rightMargin: closeBtn.width + 4
-                                onClicked: {
+                                // Out of the way while renaming, so clicks
+                                // reach the editor's cursor and selection.
+                                enabled: !tab.renaming
+                                acceptedButtons: Qt.LeftButton | Qt.RightButton
+                                onClicked: (mouse) => {
+                                    if (mouse.button === Qt.RightButton) {
+                                        tabBar.renamingIndex = index;
+                                        return;
+                                    }
                                     textrender.activeSession = index;
                                     textrender.forceActiveFocus();
                                 }
@@ -329,6 +391,15 @@ Item {
                 target: textrender
                 function onActiveSessionChanged() {
                     tabFlick.ensureVisible(textrender.activeSession);
+                }
+                function onRenameRequested(index) {
+                    tabFlick.ensureVisible(index);
+                    tabBar.renamingIndex = index;
+                }
+                // The tabs are rebuilt and renumbered, so an open editor
+                // would now belong to some other tab: drop it.
+                function onSessionCountChanged() {
+                    tabBar.renamingIndex = -1;
                 }
             }
         }

@@ -32,6 +32,7 @@ class TextRender : public QQuickPaintedItem
     Q_PROPERTY(QList<int> filterKeys READ filterKeys WRITE setFilterKeys
         NOTIFY filterKeysChanged)
     Q_PROPERTY(int sessionCount READ sessionCount NOTIFY sessionCountChanged)
+    Q_PROPERTY(QStringList sessionTitles READ sessionTitles NOTIFY sessionTitlesChanged)
     Q_PROPERTY(int activeSession READ activeSession WRITE setActiveSession
         NOTIFY activeSessionChanged)
     Q_PROPERTY(QColor defaultForeground READ defaultForeground
@@ -99,7 +100,13 @@ public:
     void setActiveSession(int index);
     Q_INVOKABLE int newSession();
     Q_INVOKABLE void closeSession(int index);
-    Q_INVOKABLE QString sessionTitle(int index);
+    Q_INVOKABLE QString sessionTitle(int index) const;
+    QStringList sessionTitles() const;
+    // The tab's name without its number: the user's name if one was given,
+    // otherwise the shell's title.
+    Q_INVOKABLE QString sessionName(int index) const;
+    // An empty name drops the user's name and goes back to the shell's title.
+    Q_INVOKABLE void renameSession(int index, const QString& name);
     Q_INVOKABLE void scrollBackward(int lines);
     Q_INVOKABLE void scrollForward(int lines);
     Q_INVOKABLE void setScrollPosition(int pos);
@@ -119,6 +126,8 @@ signals:
     void sessionCountChanged();
     void activeSessionChanged();
     void sessionTitlesChanged();
+    // The rename shortcut was pressed; the tab bar owns the editor.
+    void renameRequested(int index);
     void defaultColorsChanged();
 
 public slots:
