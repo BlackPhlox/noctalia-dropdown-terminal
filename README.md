@@ -22,7 +22,7 @@ niri…) and a key bound to `dropterm toggle`. Nothing else.
 
 ## Features
 
-- Tabbed terminal sessions, persisting across open/close
+- Tabbed terminal sessions, persisting across open/close, with renamable tabs
 - Interactive scrollbar with drag and click-to-jump
 - Built on libvterm-neovim for complete terminal emulation
 - Drops down flush beneath a bar without hardcoding the bar's height
@@ -255,6 +255,7 @@ settings window stops that key following the scheme, and reverting it resumes.
 | Shift+Insert | Paste |
 | Ctrl+Shift+T / N | New tab |
 | Ctrl+Shift+W | Close tab |
+| Ctrl+Shift+E | Rename tab (or right-click it) |
 | Shift+Left, Ctrl+Shift+Tab | Previous tab ¹ |
 | Shift+Right, Ctrl+Tab | Next tab ¹ |
 | Ctrl+Shift+Left | Move tab left ¹ |

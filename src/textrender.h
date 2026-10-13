@@ -133,6 +133,11 @@ public:
     Q_INVOKABLE void moveSession(int from, int to);
     Q_INVOKABLE QString sessionTitle(int index) const;
     QStringList sessionTitles() const;
+    // The tab's name without its number: the user's name if one was given,
+    // otherwise the shell's title.
+    Q_INVOKABLE QString sessionName(int index) const;
+    // An empty name drops the user's name and goes back to the shell's title.
+    Q_INVOKABLE void renameSession(int index, const QString& name);
     Q_INVOKABLE void scrollBackward(int lines);
     Q_INVOKABLE void scrollForward(int lines);
     Q_INVOKABLE void setScrollPosition(int pos);
@@ -156,6 +161,8 @@ signals:
     void sessionCountChanged();
     void activeSessionChanged();
     void sessionTitlesChanged();
+    // The rename shortcut was pressed; the tab bar owns the editor.
+    void renameRequested(int index);
     void defaultColorsChanged();
     void ansiColorsChanged();
 

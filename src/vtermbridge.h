@@ -105,6 +105,9 @@ public:
     bool useAltScreenBuffer() const { return m_altScreen; }
     bool mouseTracking() const { return m_mouseMode != VTERM_PROP_MOUSE_NONE; }
     QString title() const { return m_title; }
+    // Name the user gave the tab; empty means follow the shell's title.
+    QString customTitle() const { return m_customTitle; }
+    void setCustomTitle(const QString& title) { m_customTitle = title; }
 
     // Scrollback
     int backBufferScrollPos() const { return m_backBufferScrollPos; }
@@ -180,6 +183,7 @@ private:
     // Title
     QString m_title;
     QString m_pendingTitle;
+    QString m_customTitle;
 
     // The palette libvterm should be using: overrides over the built-in one.
     std::array<QRgb, 16> effectivePalette() const;

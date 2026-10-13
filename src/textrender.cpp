@@ -250,10 +250,7 @@ QString TextRender::sessionTitle(int index) const
 {
     if (index < 0 || index >= s_sessions.size())
         return QString();
-    QString title = s_sessions[index]->title();
-    if (title.isEmpty())
-        return QString("%1: Shell").arg(index + 1);
-    return QString("%1: %2").arg(index + 1).arg(title);
+    return QString("%1: %2").arg(index + 1).arg(sessionName(index));
 }
 
 QStringList TextRender::sessionTitles() const
@@ -263,6 +260,33 @@ QStringList TextRender::sessionTitles() const
     for (int i = 0; i < s_sessions.size(); ++i)
         titles.append(sessionTitle(i));
     return titles;
+}
+
+QString TextRender::sessionName(int index) const
+{
+    if (index < 0 || index >= s_sessions.size())
+        return QString();
+    const VTermBridge* session = s_sessions[index];
+    if (!session->customTitle().isEmpty())
+        return session->customTitle();
+    if (!session->title().isEmpty())
+        return session->title();
+    return QStringLiteral("Shell");
+}
+
+void TextRender::renameSession(int index, const QString& name)
+{
+    if (index < 0 || index >= s_sessions.size())
+        return;
+
+    // The editor opens holding the current name, so confirming it unchanged
+    // must not pin the shell's title in place of the live one.
+    const QString trimmed = name.trimmed();
+    if (trimmed == sessionName(index))
+        return;
+
+    s_sessions[index]->setCustomTitle(trimmed);
+    emit sessionTitlesChanged();
 }
 
 // ── Scroll API ──────────────────────────────────────────────────────
@@ -862,6 +886,10 @@ void TextRender::handleScrollBack(bool /*reset*/)
 
 void TextRender::mousePressEvent(QMouseEvent* event)
 {
+    // Take focus back from anything else holding it, such as a tab being
+    // renamed, so a click on the terminal finishes that and types here again.
+    forceActiveFocus(Qt::MouseFocusReason);
+
     m_activeClick = true;
     m_dragOrigin = event->position();
 
@@ -1026,6 +1054,7 @@ void TextRender::keyPressEvent(QKeyEvent* event)
                 closeSession(s_activeSession);
             return;
         }
+        if (key == Qt::Key_E) { emit renameRequested(s_activeSession); return; }
     }
 
     // Shift+Insert — paste
