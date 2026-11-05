@@ -108,7 +108,14 @@ dropterm show
 dropterm hide
 dropterm reload   # re-read configuration, including theme.conf
 dropterm settings # open the settings window
+dropterm -e htop  # run a program in a new tab, and show the terminal
 ```
+
+As in other terminals, everything after `-e` is the program and its
+arguments, run from the directory you ran `dropterm` in. A single argument is
+handed to `sh -c`, so `dropterm -e "htop -d 5"` from a launcher works too. If
+dropterm was not running yet, the program gets the first tab rather than a
+second one beside an idle shell.
 
 Bind the toggle in your compositor. Hyprland:
 

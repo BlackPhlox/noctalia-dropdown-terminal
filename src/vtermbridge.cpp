@@ -69,7 +69,7 @@ void VTermBridge::init(const QString& charset, const QByteArray& termEnv, const 
     // Spawn PTY
     m_pty = new PtyIFace(this, charset.isEmpty() ? "UTF-8" : charset,
         termEnv.isEmpty() ? "xterm-256color" : termEnv,
-        command, this);
+        command, m_program, m_workDir, this);
 
     if (m_pty->failed()) {
         qWarning("VTermBridge: PTY initialization failed");

@@ -127,9 +127,10 @@ void TextRender::setActiveSession(int index)
     redraw();
 }
 
-int TextRender::newSession()
+int TextRender::newSession(const QStringList& argv, const QString& workDir)
 {
     auto* session = new VTermBridge();
+    session->setProgram(argv, workDir);
     s_sessions.append(session);
 
     int index = s_sessions.size() - 1;
@@ -149,6 +150,15 @@ int TextRender::newSession()
     emit sessionCountChanged();
     setActiveSession(index);
     return index;
+}
+
+void TextRender::runCommand(const QStringList& argv, const QString& workDir)
+{
+    if (!m_terminal->isInitialized()) {
+        m_terminal->setProgram(argv, workDir);
+        return;
+    }
+    newSession(argv, workDir);
 }
 
 void TextRender::closeSession(int index)

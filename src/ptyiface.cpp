@@ -31,11 +31,12 @@ extern "C" {
 
 PtyIFace::PtyIFace(VTermBridge* bridge, const QString& /*charset*/,
     const QByteArray& termEnv, const QString& command,
+    const QStringList& program, const QString& workDir,
     QObject* parent)
     : QObject(parent)
     , m_bridge(bridge)
 {
-    spawnShell(termEnv, command);
+    spawnShell(termEnv, command, program, workDir);
 }
 
 PtyIFace::~PtyIFace()
@@ -43,21 +44,25 @@ PtyIFace::~PtyIFace()
     cleanup();
 }
 
-void PtyIFace::spawnShell(const QByteArray& termEnv, const QString& command)
+void PtyIFace::spawnShell(const QByteArray& termEnv, const QString& command,
+    const QStringList& program, const QString& workDir)
 {
-    // Determine what to execute
-    QString shell = command;
-    if (shell.isEmpty()) {
-        struct passwd* pw = getpwuid(getuid());
-        if (!pw || !pw->pw_shell) {
-            qWarning("PtyIFace: cannot determine user shell");
-            m_failed = true;
-            return;
+    // Determine what to execute: a `dropterm -e` command line, already split
+    // into its arguments, runs as given; otherwise the shell.
+    QStringList parts = program;
+    if (parts.isEmpty()) {
+        QString shell = command;
+        if (shell.isEmpty()) {
+            struct passwd* pw = getpwuid(getuid());
+            if (!pw || !pw->pw_shell) {
+                qWarning("PtyIFace: cannot determine user shell");
+                m_failed = true;
+                return;
+            }
+            shell = QString::fromLocal8Bit(pw->pw_shell) + " --login";
         }
-        shell = QString::fromLocal8Bit(pw->pw_shell) + " --login";
+        parts = shell.split(' ', Qt::SkipEmptyParts);
     }
-
-    QStringList parts = shell.split(' ', Qt::SkipEmptyParts);
     if (parts.isEmpty()) {
         m_failed = true;
         return;
@@ -73,6 +78,9 @@ void PtyIFace::spawnShell(const QByteArray& termEnv, const QString& command)
     for (int i = 0; i < argBytes.size(); ++i)
         argv[i] = argBytes[i].data();
     argv[argBytes.size()] = nullptr;
+
+    // Converted before fork(): the child should not allocate.
+    const QByteArray dir = workDir.toLocal8Bit();
 
     // Allocate PTY pair
     int master = -1, slave = -1;
@@ -109,9 +117,9 @@ void PtyIFace::spawnShell(const QByteArray& termEnv, const QString& command)
         // Environment
         setenv("TERM", termEnv.isEmpty() ? "xterm-256color" : termEnv.constData(), 1);
 
-        // Start in home directory
+        // Start where `dropterm -e` was run from, else in the home directory
         const char* home = getenv("HOME");
-        if (home)
+        if ((dir.isEmpty() || chdir(dir.constData()) != 0) && home)
             (void)chdir(home);
 
         execvp(argv[0], argv.data());

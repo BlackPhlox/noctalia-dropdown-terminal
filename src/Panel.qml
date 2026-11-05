@@ -86,6 +86,13 @@ Item {
             defaultBackground: root.settings.background
 
             Component.onCompleted: textrender.forceActiveFocus()
+
+            Connections {
+                target: root.controller
+                function onExecuteRequested(argv, workDir) {
+                    textrender.runCommand(argv, workDir);
+                }
+            }
         }
 
         // Scrollbar

@@ -97,7 +97,10 @@ public:
     int sessionCount() const;
     int activeSession() const;
     void setActiveSession(int index);
-    Q_INVOKABLE int newSession();
+    Q_INVOKABLE int newSession(const QStringList& argv = {}, const QString& workDir = {});
+    // `dropterm -e`: run argv in a new tab, or in the first one if its shell
+    // has not started yet, which is the case when that command launched us.
+    Q_INVOKABLE void runCommand(const QStringList& argv, const QString& workDir);
     Q_INVOKABLE void closeSession(int index);
     Q_INVOKABLE QString sessionTitle(int index);
     Q_INVOKABLE void scrollBackward(int lines);
