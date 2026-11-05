@@ -179,6 +179,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
+    void hoverMoveEvent(QHoverEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
     void timerEvent(QTimerEvent* event) override;
@@ -215,6 +216,7 @@ private:
     // Coordinate helpers
     QPointF cellToPixel(int col, int row) const;
     QPoint pixelToCell(QPointF pos) const;
+    QPoint reportCell(QPointF pos) const;
 
     // Selection
     void selectionHelper(QPointF scenePos, bool selectionOngoing);
@@ -232,6 +234,7 @@ private:
     bool m_activeClick = false;
     QPointF m_lastDragPos;
     int m_wheelRemainder = 0;  // alt-screen wheel delta not yet sent
+    Qt::MouseButtons m_reportedButtons;  // pressed and reported to the app
 
     QString m_title;
     QString m_shellProgram;

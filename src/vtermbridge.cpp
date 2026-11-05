@@ -609,6 +609,23 @@ void VTermBridge::wheel(int steps, QPoint cell, int modifiers)
     }
 }
 
+// libvterm only emits a report when the app's mouse mode asks for one: motion
+// is reported while a button is held, or always, depending on the mode.
+void VTermBridge::mouseMove(QPoint cell, int modifiers)
+{
+    if (m_vt)
+        vterm_mouse_move(m_vt, cell.y() - 1, cell.x() - 1, toVTermModifier(modifiers));
+}
+
+void VTermBridge::mouseButton(int button, bool pressed, QPoint cell, int modifiers)
+{
+    if (!m_vt)
+        return;
+    const VTermModifier mod = toVTermModifier(modifiers);
+    vterm_mouse_move(m_vt, cell.y() - 1, cell.x() - 1, mod);
+    vterm_mouse_button(m_vt, button, pressed, mod);
+}
+
 // ---------- Scrollback navigation ----------
 
 void VTermBridge::scrollBackBufferFwd(int lines)

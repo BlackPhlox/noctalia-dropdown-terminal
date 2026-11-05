@@ -131,6 +131,10 @@ public:
     // Wheel for full-screen apps: a mouse report when the app tracks the
     // mouse, otherwise cursor keys. steps > 0 is up; cell is 1-indexed.
     void wheel(int steps, QPoint cell, int modifiers);
+    // Mouse reports for apps that enabled tracking. button is 1 left,
+    // 2 middle, 3 right; cell is 1-indexed.
+    void mouseMove(QPoint cell, int modifiers);
+    void mouseButton(int button, bool pressed, QPoint cell, int modifiers);
 
     // Selection (stored in absolute buffer coordinates)
     QString selectedText() const;

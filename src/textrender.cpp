@@ -30,7 +30,8 @@ TextRender::TextRender(QQuickItem* parent)
     : QQuickItem(parent)
 {
     setFlag(ItemHasContents);
-    setAcceptedMouseButtons(Qt::LeftButton);
+    setAcceptedMouseButtons(Qt::LeftButton | Qt::MiddleButton | Qt::RightButton);
+    setAcceptHoverEvents(true);  // motion reports for apps that track every move
     setCursor(QCursor(Qt::IBeamCursor));
 
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged,
@@ -446,6 +447,13 @@ QPoint TextRender::pixelToCell(QPointF pos) const
     int col = qMax(1, static_cast<int>((pos.x() - leftMargin) / m_fontWidth) + 1);
     int row = qMax(1, static_cast<int>(pos.y() / m_fontHeight) + 1);
     return QPoint(col, row);
+}
+
+QPoint TextRender::reportCell(QPointF pos) const
+{
+    // A mouse report must name a cell on screen, even for a drag past an edge
+    const QPoint cell = pixelToCell(pos);
+    return QPoint(qMin(cell.x(), m_terminal->columns()), qMin(cell.y(), m_terminal->rows()));
 }
 
 // ── Painting ────────────────────────────────────────────────────────
@@ -892,13 +900,36 @@ void TextRender::handleScrollBack(bool /*reset*/)
     redraw();
 }
 
-// ── Mouse events (always-select) ────────────────────────────────────
+// ── Mouse events (select, or report to an app tracking the mouse) ──
 
+static int vtermButton(Qt::MouseButton button)
+{
+    switch (button) {
+    case Qt::LeftButton: return 1;
+    case Qt::MiddleButton: return 2;
+    case Qt::RightButton: return 3;
+    default: return 0;
+    }
+}
+
+// A press goes to the app when it enabled mouse tracking, unless Shift is
+// held: as in xterm, Shift still selects text for copying.
 void TextRender::mousePressEvent(QMouseEvent* event)
 {
     // Take focus back from anything else holding it, such as a tab being
     // renamed, so a click on the terminal finishes that and types here again.
     forceActiveFocus(Qt::MouseFocusReason);
+
+    if (m_terminal->mouseTracking() && !(event->modifiers() & Qt::ShiftModifier)) {
+        m_reportedButtons |= event->button();
+        m_terminal->mouseButton(vtermButton(event->button()), true,
+                                reportCell(event->position()), event->modifiers());
+        return;
+    }
+    // Other buttons are still accepted, so they do not fall through to the
+    // backdrop and close the dropdown.
+    if (event->button() != Qt::LeftButton)
+        return;
 
     m_activeClick = true;
     m_dragOrigin = event->position();
@@ -911,6 +942,10 @@ void TextRender::mousePressEvent(QMouseEvent* event)
 
 void TextRender::mouseMoveEvent(QMouseEvent* event)
 {
+    if (m_reportedButtons) {
+        m_terminal->mouseMove(reportCell(event->position()), event->modifiers());
+        return;
+    }
     if (!m_activeClick)
         return;
 
@@ -942,7 +977,14 @@ void TextRender::mouseMoveEvent(QMouseEvent* event)
 
 void TextRender::mouseReleaseEvent(QMouseEvent* event)
 {
-    if (!m_activeClick)
+    // The release follows its press, even if the app changed mode meanwhile.
+    if (m_reportedButtons & event->button()) {
+        m_reportedButtons &= ~event->button();
+        m_terminal->mouseButton(vtermButton(event->button()), false,
+                                reportCell(event->position()), event->modifiers());
+        return;
+    }
+    if (!m_activeClick || event->button() != Qt::LeftButton)
         return;
 
     if (m_autoScrollTimer) {
@@ -953,6 +995,12 @@ void TextRender::mouseReleaseEvent(QMouseEvent* event)
 
     selectionHelper(event->position(), false);
     m_activeClick = false;
+}
+
+void TextRender::hoverMoveEvent(QHoverEvent* event)
+{
+    if (m_terminal->mouseTracking())
+        m_terminal->mouseMove(reportCell(event->position()), event->modifiers());
 }
 
 void TextRender::selectionHelper(QPointF scenePos, bool selectionOngoing)

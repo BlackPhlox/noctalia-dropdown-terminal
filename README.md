@@ -25,6 +25,7 @@ niri…) and a key bound to `dropterm toggle`. Nothing else.
 - Tabbed terminal sessions, persisting across open/close, with renamable tabs
 - Interactive scrollbar with drag and click-to-jump
 - Resizable by dragging its side and bottom edges, until restart
+- Mouse clicks go to programs that support them (htop, vim, mc…); Shift+drag still selects
 - Built on libvterm-neovim for complete terminal emulation
 - Drops down flush beneath a bar without hardcoding the bar's height
 - Click outside to dismiss; no shell or compositor plugin required
