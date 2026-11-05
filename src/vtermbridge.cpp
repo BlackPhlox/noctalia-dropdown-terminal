@@ -143,6 +143,9 @@ int VTermBridge::cb_settermprop(VTermProp prop, VTermValue* val, void* user)
     case VTERM_PROP_REVERSE:
         self->m_reverseVideo = val->boolean;
         break;
+    case VTERM_PROP_MOUSE:
+        self->m_mouseMode = val->number;
+        break;
     default:
         break;
     }
@@ -401,6 +404,18 @@ void VTermBridge::setTermSize(QSize size)
 
 // ---------- Keyboard input ----------
 
+static VTermModifier toVTermModifier(int modifiers)
+{
+    VTermModifier mod = VTERM_MOD_NONE;
+    if (modifiers & Qt::ShiftModifier)
+        mod = (VTermModifier)(mod | VTERM_MOD_SHIFT);
+    if (modifiers & Qt::AltModifier)
+        mod = (VTermModifier)(mod | VTERM_MOD_ALT);
+    if (modifiers & Qt::ControlModifier)
+        mod = (VTermModifier)(mod | VTERM_MOD_CTRL);
+    return mod;
+}
+
 void VTermBridge::keyPress(int key, int modifiers, const QString& text)
 {
     if (!m_vt)
@@ -411,13 +426,7 @@ void VTermBridge::keyPress(int key, int modifiers, const QString& text)
         || key == Qt::Key_Meta || key == Qt::Key_Super_L || key == Qt::Key_Super_R)
         return;
 
-    VTermModifier mod = VTERM_MOD_NONE;
-    if (modifiers & Qt::ShiftModifier)
-        mod = (VTermModifier)(mod | VTERM_MOD_SHIFT);
-    if (modifiers & Qt::AltModifier)
-        mod = (VTermModifier)(mod | VTERM_MOD_ALT);
-    if (modifiers & Qt::ControlModifier)
-        mod = (VTermModifier)(mod | VTERM_MOD_CTRL);
+    VTermModifier mod = toVTermModifier(modifiers);
 
     VTermKey vtKey = VTERM_KEY_NONE;
 
@@ -506,6 +515,23 @@ void VTermBridge::putString(QString str)
 {
     if (m_pty)
         m_pty->writeRawTerm(str.toUtf8());
+}
+
+// libvterm only emits a report when the app's mouse mode asks for one: motion
+// is reported while a button is held, or always, depending on the mode.
+void VTermBridge::mouseMove(QPoint cell, int modifiers)
+{
+    if (m_vt)
+        vterm_mouse_move(m_vt, cell.y() - 1, cell.x() - 1, toVTermModifier(modifiers));
+}
+
+void VTermBridge::mouseButton(int button, bool pressed, QPoint cell, int modifiers)
+{
+    if (!m_vt)
+        return;
+    const VTermModifier mod = toVTermModifier(modifiers);
+    vterm_mouse_move(m_vt, cell.y() - 1, cell.x() - 1, mod);
+    vterm_mouse_button(m_vt, button, pressed, mod);
 }
 
 // ---------- Scrollback navigation ----------
