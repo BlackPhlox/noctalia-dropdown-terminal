@@ -17,6 +17,7 @@
 #include <QRgb>
 #include <QSize>
 #include <QString>
+#include <QStringList>
 #include <QVector>
 
 extern "C" {
@@ -71,6 +72,13 @@ public:
     void init(const QString& charset = "UTF-8",
         const QByteArray& termEnv = "xterm-256color",
         const QString& command = "");
+    // What init() runs instead of `command`, and where: a `dropterm -e`
+    // command line and the directory it was given in.
+    void setProgram(const QStringList& program, const QString& workDir)
+    {
+        m_program = program;
+        m_workDir = workDir;
+    }
 
     // Colours used for cells that carry no explicit colour. Safe to call
     // before init() (applied when the state is created) or after (applied to
@@ -161,6 +169,8 @@ private:
 
     // PTY
     PtyIFace* m_pty = nullptr;
+    QStringList m_program;
+    QString m_workDir;
 
     // Terminal state
     QSize m_termSize;

@@ -24,6 +24,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 
 #include <LayerShellQt/window.h>
 
@@ -56,11 +57,47 @@ bool hasFlag(int argc, char *argv[], const char *shortFlag, const char *longFlag
     return false;
 }
 
+// `-e` ends dropterm's own arguments: everything after it is the command to
+// run, its flags included. Returns argc when there is no `-e`.
+int findExec(int argc, char *argv[])
+{
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "-e") == 0) {
+            return i;
+        }
+    }
+    return argc;
+}
+
+// The socket message for `-e`: "exec", the caller's directory, then the
+// command's arguments, NUL-separated so that arguments keep their spaces. A
+// single argument is a command line for the shell, which is what a launcher
+// passing `-e "htop -d 5"` expects; several are run as given.
+std::string execRequest(int argc, char *argv[], int execAt)
+{
+    std::error_code ec;
+    std::string request = "exec";
+    request += '\0';
+    request += std::filesystem::current_path(ec).string();
+    if (argc - execAt == 2) {
+        request += '\0';
+        request += "/bin/sh";
+        request += '\0';
+        request += "-c";
+    }
+    for (int i = execAt + 1; i < argc; ++i) {
+        request += '\0';
+        request += argv[i];
+    }
+    return request;
+}
+
 void printUsage()
 {
     std::puts("Yakuake-style dropdown terminal on wlr-layer-shell.\n"
               "\n"
               "Usage: dropterm [command]\n"
+              "       dropterm -e <program> [args...]\n"
               "\n"
               "Commands:\n"
               "  toggle     show the terminal, or hide it if visible (default)\n"
@@ -70,6 +107,8 @@ void printUsage()
               "  settings   open the settings window\n"
               "\n"
               "Options:\n"
+              "  -e <program>   run program in a new tab and show the terminal; the\n"
+              "                 rest of the line is its arguments\n"
               "  -h, --help     show this help\n"
               "  -v, --version  show version information\n"
               "\n"
@@ -138,7 +177,35 @@ int runSettings(QGuiApplication &app)
     return app.exec();
 }
 
-int runTerminal(QGuiApplication &app)
+// One request, from the socket or from the invocation that started us.
+void handleRequest(const QByteArray &request, WindowController &controller, Settings &settings)
+{
+    const QList<QByteArray> parts = request.split('\0');
+    if (parts.size() > 2 && parts[0] == "exec") {
+        QStringList argv;
+        for (qsizetype i = 2; i < parts.size(); ++i) {
+            argv << QString::fromLocal8Bit(parts[i]);
+        }
+        controller.execute(argv, QString::fromLocal8Bit(parts[1]));
+        return;
+    }
+
+    const QByteArray cmd = request.trimmed();
+    if (cmd == "reload") {
+        // Sent by the settings process after it flushes a write.
+        settings.reload();
+    } else if (cmd == "show") {
+        controller.show();
+    } else if (cmd == "hide") {
+        controller.requestHide();
+    } else if (cmd == "toggle") {
+        controller.toggle();
+    } else if (cmd == "settings") {
+        controller.openSettings();
+    }
+}
+
+int runTerminal(QGuiApplication &app, const std::string &request)
 {
     // The window is hidden rather than closed when dismissed, but a compositor
     // config reload can dismiss the surface outright. Without this the daemon
@@ -212,27 +279,18 @@ int runTerminal(QGuiApplication &app)
     }
     QObject::connect(&server, &QLocalServer::newConnection, &server, [&] {
         while (QLocalSocket *conn = server.nextPendingConnection()) {
-            QObject::connect(conn, &QLocalSocket::readyRead, conn, [conn, &controller, &settings] {
-                const QByteArray cmd = conn->readAll().trimmed();
-                if (cmd == "reload") {
-                    // Sent by the settings process after it flushes a write.
-                    settings.reload();
-                } else if (cmd == "show") {
-                    controller.show();
-                } else if (cmd == "hide") {
-                    controller.requestHide();
-                } else if (cmd == "toggle") {
-                    controller.toggle();
-                } else if (cmd == "settings") {
-                    controller.openSettings();
-                }
+            // Read once the client has finished writing: an -e command line
+            // is not guaranteed to arrive in a single read.
+            QObject::connect(conn, &QLocalSocket::readChannelFinished, conn, [conn, &controller, &settings] {
+                handleRequest(conn->readAll(), controller, settings);
                 conn->disconnectFromServer();
             });
             QObject::connect(conn, &QLocalSocket::disconnected, conn, &QObject::deleteLater);
         }
     });
 
-    controller.show();
+    // Whatever started us: show, toggle (which shows) or exec.
+    handleRequest(QByteArray::fromStdString(request), controller, settings);
     return app.exec();
 }
 
@@ -240,17 +298,24 @@ int runTerminal(QGuiApplication &app)
 
 int main(int argc, char *argv[])
 {
-    const std::string command = peekCommand(argc, argv);
+    // Only the arguments before `-e` are ours.
+    int ownArgc = findExec(argc, argv);
+    const bool isExec = ownArgc < argc;
+    const std::string command = isExec ? "exec" : peekCommand(ownArgc, argv);
 
-    if (hasFlag(argc, argv, "-h", "--help")) {
+    if (hasFlag(ownArgc, argv, "-h", "--help")) {
         printUsage();
         return 0;
     }
-    if (hasFlag(argc, argv, "-v", "--version")) {
+    if (hasFlag(ownArgc, argv, "-v", "--version")) {
         std::puts("dropterm " DROPTERM_VERSION);
         return 0;
     }
-    if (!isKnownCommand(command)) {
+    if (isExec && ownArgc + 1 == argc) {
+        std::fputs("dropterm: -e needs a program to run\n", stderr);
+        return 2;
+    }
+    if (!isExec && !isKnownCommand(command)) {
         std::fprintf(stderr,
                      "dropterm: unknown command '%s' (expected toggle, show, hide, reload or settings)\n",
                      command.c_str());
@@ -264,8 +329,9 @@ int main(int argc, char *argv[])
     // cannot create a platform plugin, so doing this the other way round meant
     // `dropterm toggle` dumped core whenever it ran without a usable display.
     // It is also simply faster — no Wayland connection, no EGL, no QML engine.
+    const std::string request = isExec ? execRequest(argc, argv, ownArgc) : command;
     if (command != "settings") {
-        if (ipc::send(command)) {
+        if (ipc::send(request)) {
             return 0;
         }
         if (isRemoteOnly(command)) {
@@ -284,10 +350,11 @@ int main(int argc, char *argv[])
     fmt.setAlphaBufferSize(8);
     QSurfaceFormat::setDefaultFormat(fmt);
 
-    QGuiApplication app(argc, argv);
+    // Not the -e command's arguments: Qt would act on ones like `-platform`.
+    QGuiApplication app(ownArgc, argv);
     app.setApplicationName(QStringLiteral("dropterm"));
     app.setApplicationVersion(QStringLiteral(DROPTERM_VERSION));
     app.setDesktopFileName(QStringLiteral("dropterm"));
 
-    return isSettings ? runSettings(app) : runTerminal(app);
+    return isSettings ? runSettings(app) : runTerminal(app, request);
 }

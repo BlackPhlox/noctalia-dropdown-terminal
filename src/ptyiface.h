@@ -11,6 +11,7 @@
 #include <QByteArray>
 #include <QObject>
 #include <QSize>
+#include <QStringList>
 
 class QSocketNotifier;
 class VTermBridge;
@@ -20,6 +21,7 @@ class PtyIFace : public QObject {
 public:
     explicit PtyIFace(VTermBridge* bridge, const QString& charset,
         const QByteArray& termEnv, const QString& command,
+        const QStringList& program, const QString& workDir,
         QObject* parent = nullptr);
     ~PtyIFace() override;
 
@@ -45,7 +47,8 @@ private slots:
 private:
     Q_DISABLE_COPY(PtyIFace)
 
-    void spawnShell(const QByteArray& termEnv, const QString& command);
+    void spawnShell(const QByteArray& termEnv, const QString& command,
+        const QStringList& program, const QString& workDir);
     void cleanup();
 
     VTermBridge* m_bridge = nullptr;

@@ -128,7 +128,10 @@ public:
     int sessionCount() const;
     int activeSession() const;
     void setActiveSession(int index);
-    Q_INVOKABLE int newSession();
+    Q_INVOKABLE int newSession(const QStringList& argv = {}, const QString& workDir = {});
+    // `dropterm -e`: run argv in a new tab, or in the first one if its shell
+    // has not started yet, which is the case when that command launched us.
+    Q_INVOKABLE void runCommand(const QStringList& argv, const QString& workDir);
     Q_INVOKABLE void closeSession(int index);
     Q_INVOKABLE void moveSession(int from, int to);
     Q_INVOKABLE QString sessionTitle(int index) const;
@@ -202,7 +205,7 @@ private:
     void connectTerminal(VTermBridge* t);
     void disconnectTerminal(VTermBridge* t);
 
-    VTermBridge* createSession();
+    VTermBridge* createSession(const QStringList& argv = {}, const QString& workDir = {});
     void watchSession(VTermBridge* t);
     void handleHangup(VTermBridge* t);
     enum TabAction { PreviousTab, NextTab, MoveTabLeft, MoveTabRight, TabActionCount };

@@ -96,6 +96,13 @@ Item {
             moveTabRightKeys: root.settings.moveTabRightKeys
 
             Component.onCompleted: textrender.forceActiveFocus()
+
+            Connections {
+                target: root.controller
+                function onExecuteRequested(argv, workDir) {
+                    textrender.runCommand(argv, workDir);
+                }
+            }
         }
 
         // Scrollbar

@@ -173,9 +173,10 @@ void TextRender::setActiveSession(int index)
     redraw();
 }
 
-VTermBridge* TextRender::createSession()
+VTermBridge* TextRender::createSession(const QStringList& argv, const QString& workDir)
 {
     auto* session = new VTermBridge();
+    session->setProgram(argv, workDir);
     watchSession(session);
 
     // Init immediately if we know the terminal size
@@ -193,15 +194,24 @@ VTermBridge* TextRender::createSession()
     return session;
 }
 
-int TextRender::newSession()
+int TextRender::newSession(const QStringList& argv, const QString& workDir)
 {
-    s_sessions.append(createSession());
+    s_sessions.append(createSession(argv, workDir));
 
     int index = s_sessions.size() - 1;
 
     emit sessionCountChanged();
     setActiveSession(index);
     return index;
+}
+
+void TextRender::runCommand(const QStringList& argv, const QString& workDir)
+{
+    if (!m_terminal->isInitialized()) {
+        m_terminal->setProgram(argv, workDir);
+        return;
+    }
+    newSession(argv, workDir);
 }
 
 void TextRender::closeSession(int index)

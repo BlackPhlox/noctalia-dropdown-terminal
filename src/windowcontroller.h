@@ -88,8 +88,16 @@ public:
         requestHide();
     }
 
+    // `dropterm -e`: the terminal item runs the command; this only shows it.
+    void execute(const QStringList &argv, const QString &workDir)
+    {
+        Q_EMIT executeRequested(argv, workDir);
+        show();
+    }
+
 Q_SIGNALS:
     void openedChanged();
+    void executeRequested(const QStringList &argv, const QString &workDir);
 
 private:
     void setOpened(bool opened)
