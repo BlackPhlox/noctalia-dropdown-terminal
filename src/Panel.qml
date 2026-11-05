@@ -11,6 +11,33 @@ Item {
     property QtObject settings: null    // Settings  — persisted configuration
     property QtObject controller: null  // WindowController — window lifecycle
 
+    // Size as dragged by the edges. Deliberately not written back to settings:
+    // a drag lasts until restart, or until the configured size itself changes.
+    property real widthPercent: settings.widthPercent
+    property real heightPercent: settings.heightPercent
+    Connections {
+        target: root.settings
+        function onWidthPercentChanged() { root.widthPercent = root.settings.widthPercent; }
+        function onHeightPercentChanged() { root.heightPercent = root.settings.heightPercent; }
+    }
+
+    // An invisible strip along an edge of the terminal that resizes it. The
+    // panel is centred, so the width grows on both sides and the dragged edge
+    // stays under the pointer. Limits are those the settings accept.
+    component ResizeHandle: MouseArea {
+        property bool sizesWidth: false
+        property bool sizesHeight: false
+        preventStealing: true
+        onPositionChanged: (mouse) => {
+            const p = mapToItem(root, mouse.x, mouse.y);
+            if (sizesWidth)
+                root.widthPercent = Math.max(0.2, Math.min(1.0,
+                    2 * Math.abs(p.x - root.width / 2) / root.width));
+            if (sizesHeight)
+                root.heightPercent = Math.max(0.15, Math.min(1.0, p.y / root.height));
+        }
+    }
+
     // Transparent backdrop covering the rest of the output. Declared first so
     // it sits behind the terminal in stacking order — anything that reaches it
     // is by definition a click outside the terminal. This is the only reliable
@@ -27,8 +54,8 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         // Percentages are of the usable area (output minus the bar's exclusive
         // zone), which is what the compositor sized this surface to.
-        width: Math.round(parent.width * root.settings.widthPercent)
-        height: Math.round(parent.height * root.settings.heightPercent)
+        width: Math.round(parent.width * root.widthPercent)
+        height: Math.round(parent.height * root.heightPercent)
 
         // ── Roll-down ────────────────────────────────────────────
         // Closed, the panel sits directly above the surface's own top edge and
@@ -331,6 +358,39 @@ Item {
                     tabFlick.ensureVisible(textrender.activeSession);
                 }
             }
+        }
+
+        // Resize handles, last so they sit above the content. They fit the
+        // margins around the text and tab bar, and clear the scrollbar thumb.
+        ResizeHandle {
+            anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
+            width: 5
+            sizesWidth: true
+            cursorShape: Qt.SizeHorCursor
+        }
+        ResizeHandle {
+            anchors { right: parent.right; top: parent.top; bottom: parent.bottom }
+            width: 3
+            sizesWidth: true
+            cursorShape: Qt.SizeHorCursor
+        }
+        ResizeHandle {
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            height: 5
+            sizesHeight: true
+            cursorShape: Qt.SizeVerCursor
+        }
+        ResizeHandle {
+            anchors { left: parent.left; bottom: parent.bottom }
+            width: 10; height: 10
+            sizesWidth: true; sizesHeight: true
+            cursorShape: Qt.SizeBDiagCursor
+        }
+        ResizeHandle {
+            anchors { right: parent.right; bottom: parent.bottom }
+            width: 10; height: 10
+            sizesWidth: true; sizesHeight: true
+            cursorShape: Qt.SizeFDiagCursor
         }
     }
 
